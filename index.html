@@ -333,6 +333,13 @@
   let webhook = localStorage.getItem('webhook_url') || '';
   let timerInterval = null;
   let timerStart = null;
+  const COLORS = ['#c8f048','#48f0c8','#f0a048','#a048f0','#f04890','#48a0f0'];
+  const projColor = {};
+  let ci = 0;
+  function getColor(proj) {
+    if (!projColor[proj]) projColor[proj] = COLORS[ci++ % COLORS.length];
+    return projColor[proj];
+  }
 
   // ─── Init ────────────────────────────────────────────────
   if (webhook) {
@@ -480,14 +487,6 @@
   }
 
   // ─── Render ──────────────────────────────────────────────
-  const COLORS = ['#c8f048','#48f0c8','#f0a048','#a048f0','#f04890','#48a0f0'];
-  const projColor = {};
-  let ci = 0;
-  function getColor(proj) {
-    if (!projColor[proj]) projColor[proj] = COLORS[ci++ % COLORS.length];
-    return projColor[proj];
-  }
-
   function renderLogs() {
     const fp = document.getElementById('filterProject').value.toLowerCase();
     const fd = document.getElementById('filterDate').value;
