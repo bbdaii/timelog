@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>接案時間紀錄</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #161618;
+    --card: #1e1e22;
+    --border: #2a2a30;
+    --accent: #c8f048;
+    --accent2: #48f0c8;
+    --text: #f0f0e8;
+    --muted: #7a7a82;
+    --danger: #f04848;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Noto Sans TC', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 32px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  h1 { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--accent); }
+  .subtitle { font-size: 13px; color: var(--muted); font-family: var(--mono); flex: 1; }
+
+  .sync-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sync-status.connected { border-color: var(--accent2); color: var(--accent2); }
+  .sync-status.syncing { border-color: var(--accent); color: var(--accent); }
+  .sync-status.error { border-color: var(--danger); color: var(--danger); }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .sync-status.syncing .sync-dot { animation: pulse 0.8s ease-in-out infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* Setup banner */
+  .setup-banner {
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .setup-banner h3 { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 12px; }
+  .setup-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .setup-row input { flex: 1; min-width: 200px; }
+  .setup-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .setup-note a { color: var(--accent2); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  label { display: block; font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--card); }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .timer-display {
+    font-family: var(--mono);
+    font-size: 52px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: -2px;
+    margin: 8px 0 20px;
+    line-height: 1;
+  }
+  .timer-display.running { color: var(--accent2); animation: pulse 1.5s ease-in-out infinite; }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  button {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .btn-start { background: var(--accent); color: #000; }
+  .btn-start:hover { background: #d8ff58; }
+  .btn-stop { background: var(--danger); color: #fff; }
+  .btn-stop:hover { background: #ff5a5a; }
+  .btn-add { background: var(--accent2); color: #000; }
+  .btn-add:hover { background: #5affd8; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-sm { padding: 6px 12px; font-size: 11px; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .stat-val { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--accent); margin-bottom: 4px; }
+  .stat-label { font-size: 11px; color: var(--muted); }
+
+  .section-title { font-family: var(--mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+
+  .log-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .log-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .log-main { min-width: 0; }
+  .log-project { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .log-date { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .log-dur { font-family: var(--mono); font-size: 14px; color: var(--accent2); font-weight: 500; white-space: nowrap; }
+
+  .tag { display: inline-block; background: var(--card); border: 1px solid var(--border); border-radius: 4px; font-family: var(--mono); font-size: 11px; padding: 2px 8px; color: var(--muted); margin-right: 4px; }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .filter-row input, .filter-row select { width: auto; flex: 1; min-width: 120px; }
+  .export-bar { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    transition: transform 0.3s ease;
+    z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: var(--accent2); color: var(--accent2); }
+  .toast.err { border-color: var(--danger); color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TIME LOG</h1>
+  <span class="subtitle">接案時間紀錄</span>
+  <div class="sync-status" id="syncStatus">
+    <div class="sync-dot"></div>
+    <span id="syncText">未連線</span>
+  </div>
+</header>
+
+<!-- Setup Banner -->
+<div class="setup-banner" id="setupBanner">
+  <h3>連接 Google Sheets</h3>
+  <div class="setup-row">
+    <input type="text" id="webhookUrl" placeholder="貼上你的 Apps Script Web App URL…">
+    <button class="btn-add" onclick="saveWebhook()">儲存連線</button>
+  </div>
+  <div class="setup-note">
+    還沒設定？請先依照 <a href="https://github.com" id="readmeLink" target="_blank">README.md</a> 說明建立 Apps Script。
+  </div>
+</div>
+
+<div class="grid">
+  <!-- Timer -->
+  <div class="card">
+    <label>計時器</label>
+    <div class="timer-display" id="timerDisplay">00:00:00</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div>
+        <label>工作內容</label>
+        <input type="text" id="timerProject" placeholder="e.g. 修改首頁設計" list="projectSuggestions">
+        <datalist id="projectSuggestions"></datalist>
+      </div>
+      <div>
+        <label>時薪 (TWD)</label>
+        <input type="number" id="timerRate" placeholder="1200" min="0">
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label>備註</label>
+      <input type="text" id="timerNote" placeholder="工作內容說明...">
+    </div>
+    <div class="btn-row">
+      <button class="btn-start" id="btnStart" onclick="startTimer()">▶ 開始</button>
+      <button class="btn-stop" id="btnStop" onclick="stopTimer()" disabled>■ 停止</button>
+    </div>
+  </div>
+
+  <!-- Manual -->
+  <div class="card">
+    <label>手動新增紀錄</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label>工作內容</label>
+        <input type="text" id="manProject" placeholder="工作內容" list="projectSuggestions2">
+        <datalist id="projectSuggestions2"></datalist>
+      </div>
+      <div>
+        <label>時薪 (TWD)</label>
+        <input type="number" id="manRate" placeholder="1200" min="0">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label>開始時間</label>
+        <input type="datetime-local" id="manStart">
+      </div>
+      <div>
+        <label>結束時間</label>
+        <input type="datetime-local" id="manEnd">
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label>備註</label>
+      <input type="text" id="manNote" placeholder="工作內容說明...">
+    </div>
+    <button class="btn-add" onclick="addManual()">＋ 新增紀錄</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat">
+    <div class="stat-val" id="statToday">0h 0m</div>
+    <div class="stat-label">今天工時</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="statWeek">0h 0m</div>
+    <div class="stat-label">專案累積工時</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="statEarnings">$0</div>
+    <div class="stat-label">專案工時成本</div>
+  </div>
+</div>
+
+<!-- Log List -->
+<div class="card">
+  <div class="section-title">
+    <span>紀錄列表</span>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span id="totalCount" style="color:var(--accent);font-family:var(--mono);">0 筆</span>
+    </div>
+  </div>
+  <div class="filter-row">
+    <input type="text" id="filterProject" placeholder="搜尋工作內容…" oninput="renderLogs()">
+    <input type="date" id="filterDate" oninput="renderLogs()">
+    <button class="btn-secondary btn-sm" onclick="clearFilter()">清除篩選</button>
+  </div>
+  <div class="log-list" id="logList">
+    <div class="empty">尚無紀錄，開始計時或手動新增！</div>
+  </div>
+  <div class="export-bar">
+    <button class="btn-secondary" onclick="exportCSV()">⬇ 匯出 CSV</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────
+  let logs = JSON.parse(localStorage.getItem('timelogs') || '[]');
+  let webhook = localStorage.getItem('webhook_url') || '';
+  let timerInterval = null;
+  let timerStart = null;
+
+  // ─── Init ────────────────────────────────────────────────
+  if (webhook) {
+    document.getElementById('webhookUrl').value = webhook;
+    document.getElementById('setupBanner').style.display = 'none';
+    setSyncStatus('connected', '已連線');
+    loadFromSheets();
+  }
+
+  const now = new Date();
+  const fmt = d => d.toISOString().slice(0,16);
+  document.getElementById('manEnd').value = fmt(now);
+  document.getElementById('manStart').value = fmt(new Date(now - 3600000));
+
+  updateStats(); renderLogs(); updateSuggestions();
+
+  // ─── Webhook Setup ───────────────────────────────────────
+  function saveWebhook() {
+    const url = document.getElementById('webhookUrl').value.trim();
+    if (!url.startsWith('https://')) { showToast('請輸入正確的 URL', 'err'); return; }
+    webhook = url;
+    localStorage.setItem('webhook_url', webhook);
+    document.getElementById('setupBanner').style.display = 'none';
+    setSyncStatus('connected', '已連線');
+    showToast('連線已儲存！正在載入資料…', 'ok');
+    loadFromSheets();
+  }
+
+  // ─── Sync Status ─────────────────────────────────────────
+  function setSyncStatus(cls, text) {
+    const el = document.getElementById('syncStatus');
+    el.className = 'sync-status ' + cls;
+    document.getElementById('syncText').textContent = text;
+  }
+
+  // ─── API Call ────────────────────────────────────────────
+  async function callSheets(payload) {
+    if (!webhook) return null;
+    setSyncStatus('syncing', '同步中…');
+    try {
+      const res = await fetch(webhook, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      setSyncStatus('connected', '已同步');
+      return data;
+    } catch (e) {
+      setSyncStatus('error', '同步失敗');
+      showToast('同步失敗，資料已存本機', 'err');
+      return null;
+    }
+  }
+
+  async function loadFromSheets() {
+    if (!webhook) return;
+    setSyncStatus('syncing', '載入中…');
+    try {
+      const res = await fetch(webhook + '?action=getAll');
+      const data = await res.json();
+      if (data.ok && data.logs) {
+        logs = data.logs.filter(l => l.start && l.dur);
+        localStorage.setItem('timelogs', JSON.stringify(logs));
+        updateStats(); renderLogs(); updateSuggestions();
+        setSyncStatus('connected', '已同步');
+        showToast(`載入 ${logs.length} 筆紀錄`, 'ok');
+      }
+    } catch (e) {
+      setSyncStatus('error', '載入失敗');
+    }
+  }
+
+  // ─── Timer ───────────────────────────────────────────────
+  function fmtDur(ms) {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+  function fmtHM(ms) { const m = Math.floor(ms/60000); return `${Math.floor(m/60)}h ${m%60}m`; }
+
+  function startTimer() {
+    const proj = document.getElementById('timerProject').value.trim();
+    if (!proj) { document.getElementById('timerProject').focus(); return; }
+    timerStart = Date.now();
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('timerDisplay').classList.add('running');
+    timerInterval = setInterval(() => {
+      document.getElementById('timerDisplay').textContent = fmtDur(Date.now() - timerStart);
+    }, 1000);
+  }
+
+  async function stopTimer() {
+    if (!timerInterval) return;
+    clearInterval(timerInterval); timerInterval = null;
+    const end = Date.now();
+    const entry = {
+      id: Date.now(),
+      project: document.getElementById('timerProject').value.trim(),
+      note: document.getElementById('timerNote').value.trim(),
+      rate: parseFloat(document.getElementById('timerRate').value) || 0,
+      start: timerStart, end, dur: end - timerStart
+    };
+    logs.unshift(entry);
+    saveLocal();
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('btnStop').disabled = true;
+    document.getElementById('timerDisplay').textContent = '00:00:00';
+    document.getElementById('timerDisplay').classList.remove('running');
+    document.getElementById('timerNote').value = '';
+    await callSheets({ action: 'add', ...entry });
+  }
+
+  async function addManual() {
+    const proj = document.getElementById('manProject').value.trim();
+    const s = document.getElementById('manStart').value;
+    const e = document.getElementById('manEnd').value;
+    if (!proj || !s || !e) { showToast('請填寫專案名稱、開始及結束時間', 'err'); return; }
+    const start = new Date(s).getTime(), end = new Date(e).getTime();
+    if (end <= start) { showToast('結束時間必須晚於開始時間', 'err'); return; }
+    const entry = {
+      id: Date.now(), project: proj,
+      note: document.getElementById('manNote').value.trim(),
+      rate: parseFloat(document.getElementById('manRate').value) || 0,
+      start, end, dur: end - start
+    };
+    logs.unshift(entry);
+    saveLocal();
+    document.getElementById('manProject').value = '';
+    document.getElementById('manNote').value = '';
+    await callSheets({ action: 'add', ...entry });
+    showToast('已新增紀錄', 'ok');
+  }
+
+  async function deleteLog(id) {
+    logs = logs.filter(l => l.id !== id);
+    saveLocal();
+    await callSheets({ action: 'delete', id });
+  }
+
+  // ─── Local Storage ───────────────────────────────────────
+  function saveLocal() {
+    localStorage.setItem('timelogs', JSON.stringify(logs));
+    updateStats(); renderLogs(); updateSuggestions();
+  }
+
+  // ─── Render ──────────────────────────────────────────────
+  const COLORS = ['#c8f048','#48f0c8','#f0a048','#a048f0','#f04890','#48a0f0'];
+  const projColor = {};
+  let ci = 0;
+  function getColor(proj) {
+    if (!projColor[proj]) projColor[proj] = COLORS[ci++ % COLORS.length];
+    return projColor[proj];
+  }
+
+  function renderLogs() {
+    const fp = document.getElementById('filterProject').value.toLowerCase();
+    const fd = document.getElementById('filterDate').value;
+    const filtered = logs.filter(l => {
+      if (fp && !(l.note || '').toLowerCase().includes(fp)) return false;
+      if (fd && new Date(l.start).toISOString().slice(0,10) !== fd) return false;
+      return true;
+    });
+    document.getElementById('totalCount').textContent = filtered.length + ' 筆';
+    const list = document.getElementById('logList');
+    if (!filtered.length) { list.innerHTML = '<div class="empty">沒有符合的紀錄</div>'; return; }
+    list.innerHTML = filtered.map(l => {
+      const d = new Date(l.start);
+      const dateStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const earned = l.rate ? `<span class="tag">$${Math.round(l.dur/3600000*l.rate).toLocaleString()}</span>` : '';
+      return `<div class="log-item">
+        <div class="log-dot" style="background:${getColor(l.project)}"></div>
+        <div class="log-main">
+          <div class="log-project">${l.project}</div>
+          ${l.note ? `<div class="log-note">${l.note}</div>` : ''}
+          ${earned}
+        </div>
+        <div class="log-date">${dateStr}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="log-dur">${fmtDur(l.dur)}</div>
+          <button class="btn-secondary btn-sm" onclick="deleteLog(${l.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateStats() {
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    let todayMs = 0, totalMs = 0, totalEarned = 0;
+    logs.forEach(l => {
+      if (l.start >= todayStart.getTime()) todayMs += l.dur;
+      totalMs += l.dur;
+      if (l.rate) totalEarned += (l.dur/3600000)*l.rate;
+    });
+    document.getElementById('statToday').textContent = fmtHM(todayMs);
+    document.getElementById('statWeek').textContent = fmtHM(totalMs);
+    document.getElementById('statEarnings').textContent = '$' + Math.round(totalEarned).toLocaleString();
+  }
+
+  function updateSuggestions() {
+    const projects = [...new Set(logs.map(l => l.project))];
+    ['projectSuggestions','projectSuggestions2'].forEach(id => {
+      document.getElementById(id).innerHTML = projects.map(p => `<option value="${p}">`).join('');
+    });
+  }
+
+  function clearFilter() {
+    document.getElementById('filterProject').value = '';
+    document.getElementById('filterDate').value = '';
+    renderLogs();
+  }
+
+  function exportCSV() {
+    const rows = [['專案','備註','開始時間','結束時間','時長(分鐘)','時薪','收入']];
+    logs.forEach(l => rows.push([
+      l.project, l.note,
+      new Date(l.start).toLocaleString('zh-TW'),
+      new Date(l.end).toLocaleString('zh-TW'),
+      Math.round(l.dur/60000), l.rate,
+      l.rate ? Math.round(l.dur/3600000*l.rate) : ''
+    ]));
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+    a.download = `接案時間紀錄_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+
+  function clearAll() {
+    if (confirm('清除本機快取？（Google Sheets 的資料不受影響）')) {
+      logs = []; saveLocal();
+    }
+  }
+
+  function showToast(msg, type='ok') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
